@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'dart:math'; // Pour la fonction de calcul du plafond (ceil)
+import 'dart:math'; // Pour les calculs comme ceil()
 
 class Homepage extends StatefulWidget {
   const Homepage({super.key});
@@ -9,8 +9,9 @@ class Homepage extends StatefulWidget {
 }
 
 class _HomepageState extends State<Homepage> {
-  int counter = 0;
-  int step = 1;
+  int counter = 0; // Cookies actuels
+  int step = 1; // Nombre de cookies gagnés par clic
+  int totalCookies = 0; // Total de cookies générés depuis le début
 
   // Liste des upgrades achetables
   final List<Map<String, dynamic>> upgrades = [
@@ -21,7 +22,7 @@ class _HomepageState extends State<Homepage> {
     {'name': 'Cookie infini', 'cost': 5000, 'increment': 1, 'purchased': false, 'unique': false},
   ];
 
-  // Méthode pour recalculer l'effet du Cookie bonus
+  // Méthode pour calculer le bonus dynamique
   int calculateBonusIncrement() {
     return (step * 0.1).ceil(); // 10% du step arrondi au supérieur
   }
@@ -41,6 +42,7 @@ class _HomepageState extends State<Homepage> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
+                  // Nombre de cookies actuels
                   Text(
                     'Nombre de cookies : $counter',
                     style: const TextStyle(
@@ -49,10 +51,23 @@ class _HomepageState extends State<Homepage> {
                     ),
                   ),
                   const SizedBox(height: 10),
+
+                  // Nombre total de cookies générés
+                  Text(
+                    'Total de cookies générés : $totalCookies',
+                    style: const TextStyle(
+                      fontSize: 18,
+                      color: Colors.grey,
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+
+                  // Bouton pour ajouter des cookies
                   TextButton(
                     onPressed: () {
                       setState(() {
-                        counter += step;
+                        counter += step; // Ajouter des cookies au compteur actuel
+                        totalCookies += step; // Ajouter des cookies au total
                       });
                     },
                     style: TextButton.styleFrom(
@@ -90,21 +105,20 @@ class _HomepageState extends State<Homepage> {
                               counter -= upgrade['cost'] as int;
 
                               if (upgrade['name'] == 'Cookie bonus') {
-                                // Si c'est le Cookie bonus
+                                // Cas du Cookie bonus
                                 step += calculateBonusIncrement();
                                 upgrades[index]['purchased'] = true;
                               } else if (upgrade['name'] == 'Cookie infini') {
-                                // Si c'est le Cookie infini
+                                // Cas du Cookie infini
                                 step += upgrade['increment'] as int;
 
-                                // Recalcul dynamique du Cookie bonus
-                                final bonusIndex = upgrades.indexWhere(
-                                    (item) => item['name'] == 'Cookie bonus');
+                                // Recalcul du Cookie bonus si déjà acheté
+                                final bonusIndex = upgrades.indexWhere((item) => item['name'] == 'Cookie bonus');
                                 if (bonusIndex != -1 && upgrades[bonusIndex]['purchased']) {
                                   step += calculateBonusIncrement();
                                 }
                               } else {
-                                // Pour les autres achats
+                                // Cas des autres achats
                                 step += upgrade['increment'] as int;
                                 if (upgrade['unique']) {
                                   upgrades[index]['purchased'] = true;
