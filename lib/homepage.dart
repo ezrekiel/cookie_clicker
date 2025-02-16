@@ -11,11 +11,13 @@ class Homepage extends StatefulWidget {
 class _HomepageState extends State<Homepage> {
   int counter = 0; // Cookies actuels
   int step = 1; // Nombre de cookies gagnés par clic
-  int totalCookies = 0; // Total de cookies générés
-  int passiveCookiesPerSecond = 0; // Cookies générés automatiquement chaque seconde
-  Timer? _timer; // Timer pour les revenus passifs
+  int totalCookies = 0; // Total des cookies générés
+  int passiveCookiesPerSecond = 0; // Revenus passifs
+  double multiplier = 1.0; // Multiplier de boost temporaire
+  bool isBoostActive = false; // Indique si un boost est actif
+  Timer? _boostTimer; // Timer pour la durée du boost
 
-  // Liste des upgrades achetables (ajout des revenus passifs)
+  // Liste des upgrades achetables (ajout du boost temporaire)
   final List<Map<String, dynamic>> upgrades = [
     {'name': 'Double cookie', 'cost': 50, 'increment': 1, 'purchased': false, 'unique': true},
     {'name': 'Super cookie', 'cost': 200, 'increment': 6, 'purchased': false, 'unique': true},
@@ -24,28 +26,30 @@ class _HomepageState extends State<Homepage> {
     {'name': 'Cookie infini', 'cost': 5000, 'increment': 1, 'purchased': false, 'unique': false},
     {'name': 'Usine à Cookies', 'cost': 1000, 'increment': 5, 'purchased': false, 'unique': false, 'passive': true},
     {'name': 'Ferme de Cookies', 'cost': 5000, 'increment': 25, 'purchased': false, 'unique': false, 'passive': true},
+    {'name': 'Boost 2x (10s)', 'cost': 3000, 'increment': 2.0, 'purchased': false, 'unique': false, 'boost': true},
   ];
 
   @override
-  void initState() {
-    super.initState();
-    _startPassiveIncomeTimer(); // Démarrer le timer au lancement du jeu
+  void dispose() {
+    _boostTimer?.cancel(); // Arrêter le timer du boost si la page est quittée
+    super.dispose();
   }
 
-  // Fonction pour démarrer le timer qui ajoute des cookies automatiquement
-  void _startPassiveIncomeTimer() {
-    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+  // Fonction pour activer le boost temporaire
+  void activateBoost(double boostMultiplier) {
+    setState(() {
+      multiplier *= boostMultiplier;
+      isBoostActive = true;
+    });
+
+    // Démarrer un timer qui remet le multiplicateur à 1 après 10 secondes
+    _boostTimer?.cancel(); // Annule le précédent si existant
+    _boostTimer = Timer(const Duration(seconds: 10), () {
       setState(() {
-        counter += passiveCookiesPerSecond;
-        totalCookies += passiveCookiesPerSecond;
+        multiplier = 1.0;
+        isBoostActive = false;
       });
     });
-  }
-
-  @override
-  void dispose() {
-    _timer?.cancel(); // Arrêter le timer quand l'écran est fermé
-    super.dispose();
   }
 
   @override
@@ -91,14 +95,28 @@ class _HomepageState extends State<Homepage> {
                       color: Colors.green,
                     ),
                   ),
+                  const SizedBox(height: 10),
+
+                  // Indicateur si le boost est actif
+                  if (isBoostActive)
+                    Text(
+                      'BOOST ACTIVÉ ! x${multiplier.toStringAsFixed(1)}',
+                      style: const TextStyle(
+                        fontSize: 20,
+                        color: Colors.red,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+
                   const SizedBox(height: 20),
 
                   // Bouton pour ajouter des cookies
                   TextButton(
                     onPressed: () {
                       setState(() {
-                        counter += step;
-                        totalCookies += step;
+                        int cookiesGagnes = (step * multiplier).round();
+                        counter += cookiesGagnes;
+                        totalCookies += cookiesGagnes;
                       });
                     },
                     style: TextButton.styleFrom(
@@ -107,7 +125,7 @@ class _HomepageState extends State<Homepage> {
                       foregroundColor: Colors.white,
                       textStyle: const TextStyle(fontSize: 20),
                     ),
-                    child: Text('+ $step cookies'),
+                    child: Text('+ ${step * multiplier} cookies'),
                   ),
                 ],
               ),
@@ -135,8 +153,9 @@ class _HomepageState extends State<Homepage> {
                             setState(() {
                               counter -= upgrade['cost'] as int;
 
-                              if (upgrade['passive'] == true) {
-                                // Si l'upgrade génère des revenus passifs
+                              if (upgrade['boost'] == true) {
+                                activateBoost(upgrade['increment'] as double);
+                              } else if (upgrade['passive'] == true) {
                                 passiveCookiesPerSecond += upgrade['increment'] as int;
                               } else if (upgrade['name'] == 'Cookie bonus') {
                                 step += (step * 0.1).ceil(); // 10% d'augmentation
@@ -153,7 +172,7 @@ class _HomepageState extends State<Homepage> {
                           }
                         : null, // Désactiver si conditions non remplies
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.green,
+                      backgroundColor: Colors.purple,
                       foregroundColor: Colors.white,
                     ),
                     child: Text(
