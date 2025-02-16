@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'dart:math'; // Pour les calculs comme ceil()
+import 'dart:async'; // Import pour utiliser Timer
 
 class Homepage extends StatefulWidget {
   const Homepage({super.key});
@@ -11,20 +11,41 @@ class Homepage extends StatefulWidget {
 class _HomepageState extends State<Homepage> {
   int counter = 0; // Cookies actuels
   int step = 1; // Nombre de cookies gagnés par clic
-  int totalCookies = 0; // Total de cookies générés depuis le début
+  int totalCookies = 0; // Total de cookies générés
+  int passiveCookiesPerSecond = 0; // Cookies générés automatiquement chaque seconde
+  Timer? _timer; // Timer pour les revenus passifs
 
-  // Liste des upgrades achetables
+  // Liste des upgrades achetables (ajout des revenus passifs)
   final List<Map<String, dynamic>> upgrades = [
     {'name': 'Double cookie', 'cost': 50, 'increment': 1, 'purchased': false, 'unique': true},
     {'name': 'Super cookie', 'cost': 200, 'increment': 6, 'purchased': false, 'unique': true},
     {'name': 'Mega cookie', 'cost': 500, 'increment': 15, 'purchased': false, 'unique': true},
     {'name': 'Cookie bonus', 'cost': 2000, 'increment': 0, 'purchased': false, 'unique': true},
     {'name': 'Cookie infini', 'cost': 5000, 'increment': 1, 'purchased': false, 'unique': false},
+    {'name': 'Usine à Cookies', 'cost': 1000, 'increment': 5, 'purchased': false, 'unique': false, 'passive': true},
+    {'name': 'Ferme de Cookies', 'cost': 5000, 'increment': 25, 'purchased': false, 'unique': false, 'passive': true},
   ];
 
-  // Méthode pour calculer le bonus dynamique
-  int calculateBonusIncrement() {
-    return (step * 0.1).ceil(); // 10% du step arrondi au supérieur
+  @override
+  void initState() {
+    super.initState();
+    _startPassiveIncomeTimer(); // Démarrer le timer au lancement du jeu
+  }
+
+  // Fonction pour démarrer le timer qui ajoute des cookies automatiquement
+  void _startPassiveIncomeTimer() {
+    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      setState(() {
+        counter += passiveCookiesPerSecond;
+        totalCookies += passiveCookiesPerSecond;
+      });
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel(); // Arrêter le timer quand l'écran est fermé
+    super.dispose();
   }
 
   @override
@@ -60,14 +81,24 @@ class _HomepageState extends State<Homepage> {
                       color: Colors.grey,
                     ),
                   ),
+                  const SizedBox(height: 10),
+
+                  // Affichage des revenus passifs
+                  Text(
+                    'Cookies générés par seconde : $passiveCookiesPerSecond',
+                    style: const TextStyle(
+                      fontSize: 18,
+                      color: Colors.green,
+                    ),
+                  ),
                   const SizedBox(height: 20),
 
                   // Bouton pour ajouter des cookies
                   TextButton(
                     onPressed: () {
                       setState(() {
-                        counter += step; // Ajouter des cookies au compteur actuel
-                        totalCookies += step; // Ajouter des cookies au total
+                        counter += step;
+                        totalCookies += step;
                       });
                     },
                     style: TextButton.styleFrom(
@@ -104,21 +135,15 @@ class _HomepageState extends State<Homepage> {
                             setState(() {
                               counter -= upgrade['cost'] as int;
 
-                              if (upgrade['name'] == 'Cookie bonus') {
-                                // Cas du Cookie bonus
-                                step += calculateBonusIncrement();
+                              if (upgrade['passive'] == true) {
+                                // Si l'upgrade génère des revenus passifs
+                                passiveCookiesPerSecond += upgrade['increment'] as int;
+                              } else if (upgrade['name'] == 'Cookie bonus') {
+                                step += (step * 0.1).ceil(); // 10% d'augmentation
                                 upgrades[index]['purchased'] = true;
                               } else if (upgrade['name'] == 'Cookie infini') {
-                                // Cas du Cookie infini
                                 step += upgrade['increment'] as int;
-
-                                // Recalcul du Cookie bonus si déjà acheté
-                                final bonusIndex = upgrades.indexWhere((item) => item['name'] == 'Cookie bonus');
-                                if (bonusIndex != -1 && upgrades[bonusIndex]['purchased']) {
-                                  step += calculateBonusIncrement();
-                                }
                               } else {
-                                // Cas des autres achats
                                 step += upgrade['increment'] as int;
                                 if (upgrade['unique']) {
                                   upgrades[index]['purchased'] = true;
