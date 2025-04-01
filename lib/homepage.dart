@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'dart:async'; // Import pour utiliser Timer
+import 'dart:async';
 
 class Homepage extends StatefulWidget {
   const Homepage({super.key});
@@ -9,15 +9,23 @@ class Homepage extends StatefulWidget {
 }
 
 class _HomepageState extends State<Homepage> {
-  int counter = 0; // Cookies actuels
-  int step = 1; // Nombre de cookies gagnés par clic
-  int totalCookies = 0; // Total des cookies générés
-  int passiveCookiesPerSecond = 0; // Revenus passifs
-  double multiplier = 1.0; // Multiplier de boost temporaire
-  bool isBoostActive = false; // Indique si un boost est actif
-  Timer? _boostTimer; // Timer pour la durée du boost
+  int counter = 0;
+  int step = 1;
+  int totalCookies = 0;
+  int passiveCookiesPerSecond = 0;
 
-  // Liste des upgrades achetables (ajout du boost temporaire)
+  double multiplier = 1.0;
+  bool isBoostActive = false;
+  bool isBonusActive = false; // ✅ Nouveau : bonus 10% actif ou non
+
+  Timer? _boostTimer;
+  Timer? _passiveTimer;
+
+  final Color darkGrey = const Color(0xFF292929);
+  final Color black = const Color(0xFF000000);
+  final Color orange = Colors.orange;
+  final Color purple = Colors.purple;
+
   final List<Map<String, dynamic>> upgrades = [
     {'name': 'Double cookie', 'cost': 50, 'increment': 1, 'purchased': false, 'unique': true},
     {'name': 'Super cookie', 'cost': 200, 'increment': 6, 'purchased': false, 'unique': true},
@@ -30,20 +38,29 @@ class _HomepageState extends State<Homepage> {
   ];
 
   @override
-  void dispose() {
-    _boostTimer?.cancel(); // Arrêter le timer du boost si la page est quittée
-    super.dispose();
+  void initState() {
+    super.initState();
+    startPassiveIncomeTimer();
   }
 
-  // Fonction pour activer le boost temporaire
+  void startPassiveIncomeTimer() {
+    _passiveTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (passiveCookiesPerSecond > 0) {
+        setState(() {
+          counter += passiveCookiesPerSecond;
+          totalCookies += passiveCookiesPerSecond;
+        });
+      }
+    });
+  }
+
   void activateBoost(double boostMultiplier) {
     setState(() {
       multiplier *= boostMultiplier;
       isBoostActive = true;
     });
 
-    // Démarrer un timer qui remet le multiplicateur à 1 après 10 secondes
-    _boostTimer?.cancel(); // Annule le précédent si existant
+    _boostTimer?.cancel();
     _boostTimer = Timer(const Duration(seconds: 10), () {
       setState(() {
         multiplier = 1.0;
@@ -52,140 +69,145 @@ class _HomepageState extends State<Homepage> {
     });
   }
 
+  // Ajout du bonus permanent à chaque ajout de step
+  void addToStep(int baseIncrement) {
+    int finalIncrement = baseIncrement;
+    if (isBonusActive) {
+      finalIncrement += (baseIncrement * 0.1).ceil();
+    }
+    step += finalIncrement;
+  }
+
+  @override
+  void dispose() {
+    _boostTimer?.cancel();
+    _passiveTimer?.cancel();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Compteur de cookies'),
+    return MaterialApp(
+      theme: ThemeData.dark().copyWith(
+        scaffoldBackgroundColor: darkGrey,
+        textTheme: ThemeData.dark().textTheme.apply(
+              bodyColor: Colors.white,
+              displayColor: Colors.white,
+            ),
       ),
-      body: Column(
-        children: [
-          // Section du compteur principal
-          Expanded(
-            flex: 1,
-            child: Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  // Nombre de cookies actuels
-                  Text(
-                    'Nombre de cookies : $counter',
-                    style: const TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-
-                  // Nombre total de cookies générés
-                  Text(
-                    'Total de cookies générés : $totalCookies',
-                    style: const TextStyle(
-                      fontSize: 18,
-                      color: Colors.grey,
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-
-                  // Affichage des revenus passifs
-                  Text(
-                    'Cookies générés par seconde : $passiveCookiesPerSecond',
-                    style: const TextStyle(
-                      fontSize: 18,
-                      color: Colors.green,
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-
-                  // Indicateur si le boost est actif
-                  if (isBoostActive)
-                    Text(
-                      'BOOST ACTIVÉ ! x${multiplier.toStringAsFixed(1)}',
-                      style: const TextStyle(
-                        fontSize: 20,
-                        color: Colors.red,
-                        fontWeight: FontWeight.bold,
+      home: Scaffold(
+        appBar: AppBar(
+          backgroundColor: black,
+          title: const Text('Compteur de cookies'),
+        ),
+        body: Column(
+          children: [
+            // Haut de l'écran
+            Expanded(
+              flex: 1,
+              child: Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text('Nombre de cookies : $counter',
+                        style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 10),
+                    Text('Total de cookies générés : $totalCookies',
+                        style: const TextStyle(fontSize: 18, color: Colors.grey)),
+                    const SizedBox(height: 10),
+                    Text('Cookies générés par seconde : $passiveCookiesPerSecond',
+                        style: const TextStyle(fontSize: 18, color: Colors.green)),
+                    const SizedBox(height: 10),
+                    if (isBoostActive)
+                      Text(
+                        'BOOST ACTIVÉ ! x${multiplier.toStringAsFixed(1)}',
+                        style: const TextStyle(fontSize: 20, color: Colors.red, fontWeight: FontWeight.bold),
                       ),
+                    const SizedBox(height: 20),
+                    TextButton(
+                      onPressed: () {
+                        setState(() {
+                          int cookiesGagnes = (step * multiplier).round();
+                          counter += cookiesGagnes;
+                          totalCookies += cookiesGagnes;
+                        });
+                      },
+                      style: TextButton.styleFrom(
+                        padding: const EdgeInsets.all(16),
+                        backgroundColor: darkGrey,
+                        foregroundColor: Colors.white,
+                        textStyle: const TextStyle(fontSize: 20),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.zero,
+                          side: BorderSide(color: orange, width: 1),
+                        ),
+                      ),
+                      child: Text('+ ${(step * multiplier).round()} cookies'),
                     ),
-
-                  const SizedBox(height: 20),
-
-                  // Bouton pour ajouter des cookies
-                  TextButton(
-                    onPressed: () {
-                      setState(() {
-                        int cookiesGagnes = (step * multiplier).round();
-                        counter += cookiesGagnes;
-                        totalCookies += cookiesGagnes;
-                      });
-                    },
-                    style: TextButton.styleFrom(
-                      padding: const EdgeInsets.all(16),
-                      backgroundColor: Colors.orange,
-                      foregroundColor: Colors.white,
-                      textStyle: const TextStyle(fontSize: 20),
-                    ),
-                    child: Text('+ ${step * multiplier} cookies'),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
-          ),
 
-          // Section de la liste des achats
-          Expanded(
-            flex: 2,
-            child: ListView.builder(
-              itemCount: upgrades.length,
-              itemBuilder: (context, index) {
-                final upgrade = upgrades[index];
+            // Liste des upgrades
+            Expanded(
+              flex: 2,
+              child: ListView.builder(
+                itemCount: upgrades.length,
+                itemBuilder: (context, index) {
+                  final upgrade = upgrades[index];
+                  final bool isPurple = upgrade['boost'] == true;
+                  final bool isOrange = !isPurple;
 
-                return ListTile(
-                  title: Text(
-                    upgrade['name'],
-                    style: const TextStyle(fontSize: 18),
-                  ),
-                  subtitle: Text('Coût : ${upgrade['cost']} cookies'),
-                  trailing: ElevatedButton(
-                    onPressed: (counter >= upgrade['cost'] &&
-                            (!upgrade['unique'] || !upgrade['purchased']))
-                        ? () {
-                            setState(() {
-                              counter -= upgrade['cost'] as int;
+                  return ListTile(
+                    title: Text(upgrade['name'], style: const TextStyle(fontSize: 18)),
+                    subtitle: Text('Coût : ${upgrade['cost']} cookies'),
+                    trailing: ElevatedButton(
+                      onPressed: (counter >= upgrade['cost'] &&
+                              (!upgrade['unique'] || !upgrade['purchased']))
+                          ? () {
+                              setState(() {
+                                counter -= upgrade['cost'] as int;
 
-                              if (upgrade['boost'] == true) {
-                                activateBoost(upgrade['increment'] as double);
-                              } else if (upgrade['passive'] == true) {
-                                passiveCookiesPerSecond += upgrade['increment'] as int;
-                              } else if (upgrade['name'] == 'Cookie bonus') {
-                                step += (step * 0.1).ceil(); // 10% d'augmentation
-                                upgrades[index]['purchased'] = true;
-                              } else if (upgrade['name'] == 'Cookie infini') {
-                                step += upgrade['increment'] as int;
-                              } else {
-                                step += upgrade['increment'] as int;
-                                if (upgrade['unique']) {
+                                if (upgrade['boost'] == true) {
+                                  activateBoost(upgrade['increment'] as double);
+                                } else if (upgrade['passive'] == true) {
+                                  passiveCookiesPerSecond += upgrade['increment'] as int;
+                                } else if (upgrade['name'] == 'Cookie bonus') {
+                                  isBonusActive = true; // Active le bonus permanent
                                   upgrades[index]['purchased'] = true;
+                                } else {
+                                  addToStep(upgrade['increment'] as int); // Utilise la fonction qui applique le bonus
+                                  if (upgrade['unique']) {
+                                    upgrades[index]['purchased'] = true;
+                                  }
                                 }
-                              }
-                            });
-                          }
-                        : null, // Désactiver si conditions non remplies
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.purple,
-                      foregroundColor: Colors.white,
+                              });
+                            }
+                          : null,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: darkGrey,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.zero,
+                          side: BorderSide(
+                            color: isPurple ? purple : orange,
+                            width: 1,
+                          ),
+                        ),
+                      ),
+                      child: Text(
+                        upgrade['unique'] && upgrade['purchased']
+                            ? 'Déjà acheté'
+                            : 'Acheter',
+                      ),
                     ),
-                    child: Text(
-                      upgrade['unique'] && upgrade['purchased']
-                          ? 'Déjà acheté'
-                          : 'Acheter',
-                    ),
-                  ),
-                );
-              },
+                  );
+                },
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
