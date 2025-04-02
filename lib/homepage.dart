@@ -16,7 +16,10 @@ class _HomepageState extends State<Homepage> {
 
   double multiplier = 1.0;
   bool isBoostActive = false;
-  bool isBonusActive = false; // ✅ Nouveau : bonus 10% actif ou non
+  bool isBonusActive = false;
+
+  int prestigePoints = 0;
+  bool canPrestige = false;
 
   Timer? _boostTimer;
   Timer? _passiveTimer;
@@ -49,6 +52,7 @@ class _HomepageState extends State<Homepage> {
         setState(() {
           counter += passiveCookiesPerSecond;
           totalCookies += passiveCookiesPerSecond;
+          checkPrestigeAvailable();
         });
       }
     });
@@ -69,13 +73,39 @@ class _HomepageState extends State<Homepage> {
     });
   }
 
-  // Ajout du bonus permanent à chaque ajout de step
   void addToStep(int baseIncrement) {
     int finalIncrement = baseIncrement;
     if (isBonusActive) {
       finalIncrement += (baseIncrement * 0.1).ceil();
     }
     step += finalIncrement;
+  }
+
+  double getPrestigeMultiplier() {
+    return 1 + (prestigePoints * 0.01);
+  }
+
+  void checkPrestigeAvailable() {
+    canPrestige = totalCookies >= 100000;
+  }
+
+  void performPrestige() {
+    setState(() {
+      prestigePoints += 1;
+      counter = 0;
+      step = 1;
+      totalCookies = 0;
+      passiveCookiesPerSecond = 0;
+      multiplier = 1.0;
+      isBoostActive = false;
+      isBonusActive = false;
+
+      for (var upgrade in upgrades) {
+        upgrade['purchased'] = false;
+      }
+
+      canPrestige = false;
+    });
   }
 
   @override
@@ -112,12 +142,14 @@ class _HomepageState extends State<Homepage> {
                     Text('Nombre de cookies : $counter',
                         style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
                     const SizedBox(height: 10),
-                    Text('Total de cookies générés : $totalCookies',
+                    Text('Total généré : $totalCookies',
                         style: const TextStyle(fontSize: 18, color: Colors.grey)),
                     const SizedBox(height: 10),
-                    Text('Cookies générés par seconde : $passiveCookiesPerSecond',
+                    Text('Cookies/sec : $passiveCookiesPerSecond',
                         style: const TextStyle(fontSize: 18, color: Colors.green)),
                     const SizedBox(height: 10),
+                    Text('Prestige : $prestigePoints (+${(prestigePoints)}%)',
+                        style: const TextStyle(fontSize: 16, color: Colors.amberAccent)),
                     if (isBoostActive)
                       Text(
                         'BOOST ACTIVÉ ! x${multiplier.toStringAsFixed(1)}',
@@ -127,9 +159,11 @@ class _HomepageState extends State<Homepage> {
                     TextButton(
                       onPressed: () {
                         setState(() {
-                          int cookiesGagnes = (step * multiplier).round();
+                          int cookiesGagnes =
+                              (step * multiplier * getPrestigeMultiplier()).round();
                           counter += cookiesGagnes;
                           totalCookies += cookiesGagnes;
+                          checkPrestigeAvailable();
                         });
                       },
                       style: TextButton.styleFrom(
@@ -139,11 +173,25 @@ class _HomepageState extends State<Homepage> {
                         textStyle: const TextStyle(fontSize: 20),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.zero,
-                          side: BorderSide(color: orange, width: 1),
+                          side: BorderSide(color: orange, width: 2),
                         ),
                       ),
-                      child: Text('+ ${(step * multiplier).round()} cookies'),
+                      child: Text('+ ${(step * multiplier * getPrestigeMultiplier()).round()} cookies'),
                     ),
+                    const SizedBox(height: 8),
+                    if (canPrestige)
+                      ElevatedButton(
+                        onPressed: performPrestige,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: black,
+                          foregroundColor: Colors.yellow,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.zero,
+                            side: const BorderSide(color: Colors.yellow, width: 2),
+                          ),
+                        ),
+                        child: const Text('PRESTIGE ! +1 ⚡'),
+                      ),
                   ],
                 ),
               ),
@@ -174,14 +222,15 @@ class _HomepageState extends State<Homepage> {
                                 } else if (upgrade['passive'] == true) {
                                   passiveCookiesPerSecond += upgrade['increment'] as int;
                                 } else if (upgrade['name'] == 'Cookie bonus') {
-                                  isBonusActive = true; // Active le bonus permanent
+                                  isBonusActive = true;
                                   upgrades[index]['purchased'] = true;
                                 } else {
-                                  addToStep(upgrade['increment'] as int); // Utilise la fonction qui applique le bonus
+                                  addToStep(upgrade['increment'] as int);
                                   if (upgrade['unique']) {
                                     upgrades[index]['purchased'] = true;
                                   }
                                 }
+                                checkPrestigeAvailable();
                               });
                             }
                           : null,
@@ -192,7 +241,7 @@ class _HomepageState extends State<Homepage> {
                           borderRadius: BorderRadius.zero,
                           side: BorderSide(
                             color: isPurple ? purple : orange,
-                            width: 1,
+                            width: 2,
                           ),
                         ),
                       ),
